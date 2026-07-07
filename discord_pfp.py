@@ -21,13 +21,14 @@ import json
 import os
 import re
 import sys
-import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
 CDN = "https://cdn.discordapp.com"
 SIZES = (256, 512, 1024, 4096)
 DISCORD_EPOCH_MS = 1420070400000  # 2015-01-01T00:00:00Z
+SNOWFLAKE_TIMESTAMP_SHIFT = 22  # low 22 bits of a Discord snowflake are not timestamp
+DEFAULT_AVATAR_COUNT = 6  # number of built-in Discord embed avatars (0.png-5.png)
 UA = "discord-pfp/1.0 (+https://github.com/KitsuneTech1/discord-pfp)"
 
 
@@ -46,8 +47,19 @@ def parse_user_id(raw):
 
 
 def snowflake_created(user_id):
-    ms = (int(user_id) >> 22) + DISCORD_EPOCH_MS
+    ms = (int(user_id) >> SNOWFLAKE_TIMESTAMP_SHIFT) + DISCORD_EPOCH_MS
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+
+
+def user_fields(d):
+    return {
+        "id": d["id"],
+        "username": d.get("username"),
+        "global_name": d.get("global_name"),
+        "avatar": d.get("avatar"),
+        "banner": d.get("banner"),
+        "accent_color": d.get("accent_color"),
+    }
 
 
 def lookup_japi(user_id):
@@ -55,14 +67,7 @@ def lookup_japi(user_id):
     d = data.get("data")
     if not d or "id" not in d:
         raise LookupError(f"japi.rest returned no user for {user_id}")
-    return {
-        "id": d["id"],
-        "username": d.get("username"),
-        "global_name": d.get("global_name"),
-        "avatar": d.get("avatar"),
-        "banner": d.get("banner"),
-        "accent_color": d.get("accent_color"),
-    }
+    return user_fields(d)
 
 
 def lookup_discord_api(user_id, token):
@@ -70,27 +75,20 @@ def lookup_discord_api(user_id, token):
         f"https://discord.com/api/v10/users/{user_id}",
         headers={"Authorization": f"Bot {token}"},
     ))
-    return {
-        "id": d["id"],
-        "username": d.get("username"),
-        "global_name": d.get("global_name"),
-        "avatar": d.get("avatar"),
-        "banner": d.get("banner"),
-        "accent_color": d.get("accent_color"),
-    }
+    return user_fields(d)
 
 
 def lookup(user_id):
     errors = []
     try:
         return lookup_japi(user_id)
-    except Exception as e:  # noqa: BLE001 - fall through to next resolver
+    except Exception as e:
         errors.append(f"japi.rest: {e}")
     token = os.environ.get("DISCORD_BOT_TOKEN")
     if token:
         try:
             return lookup_discord_api(user_id, token)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             errors.append(f"discord api: {e}")
     raise LookupError("all resolvers failed: " + "; ".join(errors))
 
@@ -108,7 +106,8 @@ def image_urls(kind, user_id, img_hash, size):
 
 
 def default_avatar_url(user_id):
-    return f"{CDN}/embed/avatars/{(int(user_id) >> 22) % 6}.png"
+    index = (int(user_id) >> SNOWFLAKE_TIMESTAMP_SHIFT) % DEFAULT_AVATAR_COUNT
+    return f"{CDN}/embed/avatars/{index}.png"
 
 
 def build_result(user, size):
@@ -160,7 +159,7 @@ def main(argv=None):
         user_id = parse_user_id(args.user)
         user = lookup(user_id)
         result = build_result(user, args.size)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

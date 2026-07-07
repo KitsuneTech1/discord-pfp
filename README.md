@@ -16,6 +16,46 @@ avatar:      https://cdn.discordapp.com/avatars/.../....png?size=4096
 banner:      none set
 ```
 
+## Run it yourself
+
+### What you need
+
+- **Python 3.8 or newer.** That's it, nothing else to install. Check with `python --version` in a terminal (on Mac/Linux it may be `python3 --version` instead). It should print `Python 3.8.0` or higher. If the command errors, install from https://www.python.org/downloads/. On Windows, check the box "Add python.exe to PATH" during install, that box is easy to miss and causes most problems below.
+
+### Step by step
+
+1. **Open a terminal.**
+   - Windows: press the Start key, type `PowerShell`, and open "Windows PowerShell".
+   - Mac: open Spotlight (Cmd+Space), type `Terminal`, and open it.
+
+2. **Get the code.** Pick one:
+   - No `git` installed: on the [GitHub page](https://github.com/KitsuneTech1/discord-pfp), click the green "Code" button, choose "Download ZIP", then extract the ZIP somewhere easy to find, like your Desktop.
+   - With `git` installed:
+     ```bash
+     git clone https://github.com/KitsuneTech1/discord-pfp.git
+     ```
+
+3. **Move into the project folder.**
+   ```bash
+   cd discord-pfp
+   ```
+   (If you downloaded the ZIP to your Desktop instead, use `cd Desktop/discord-pfp` or wherever you extracted it.)
+
+4. **Run it.** There's no install step, no dependencies to download, this is a single Python file.
+   ```bash
+   python discord_pfp.py 80351110224678912 --banner
+   ```
+   (Use `python3` instead of `python` if that's what `python --version` needed above.) Swap in any Discord user ID you want to look up.
+
+**It worked if:** you see lines starting with `user:`, `created:`, and `avatar:` printed in the terminal, like the example at the top of this file.
+
+**Troubleshooting:**
+
+- **`'python' is not recognized` / `python: command not found`.** Try `python3` instead. If neither works, Python wasn't added to PATH during install, reinstall from python.org and make sure the PATH checkbox is checked, then reopen your terminal.
+- **`error: no Discord user ID found in '...'`.** The value you passed isn't a valid ID, mention, or profile URL. Copy the plain numeric ID (Discord: enable Developer Mode in Settings > Advanced, then right-click a user and "Copy User ID").
+- **`error: all resolvers failed: japi.rest: ...`.** The free lookup service is temporarily down or rate-limiting you. Wait a minute and try again, or set a `DISCORD_BOT_TOKEN` environment variable with a real Discord bot token to fall back to the official API (see "How it works" below).
+- **SSL certificate error on Mac.** A common first-run Mac/Python issue unrelated to this script. Run the "Install Certificates.command" file that came with your Python installation (usually in `/Applications/Python 3.x/`).
+
 ## Usage
 
 ```

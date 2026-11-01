@@ -86,13 +86,17 @@ Lookups go through the public [japi.rest](https://japi.rest) Discord user endpoi
 
 Account creation date and age come from decoding the Discord snowflake ID directly, no API call needed for that part.
 
+## Tests
+
+The test suite uses only the Python standard library and does not contact Discord or any other network service.
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 ## Notes on rate limits
 
 japi.rest is a free public service and can rate-limit or throttle under heavy use. For scripted or high-volume lookups, set `DISCORD_BOT_TOKEN` (a real Discord bot token) so the script falls back to the official API, which has its own, more predictable rate limits.
-
-## Agent integration
-
-Registered as the Claude Code user-level skill `discord-pfp` (`~/.claude/skills/discord-pfp/SKILL.md`), so every agent session on this machine knows how to call it.
 
 ## License
 

@@ -40,10 +40,17 @@ def http_get(url, headers=None, timeout=20):
 
 def parse_user_id(raw):
     """Accept a bare ID, a mention like <@123>, or a discord.com profile URL."""
-    m = re.search(r"(\d{15,21})", raw)
-    if not m:
-        raise ValueError(f"no Discord user ID found in {raw!r}")
-    return m.group(1)
+    raw = raw.strip()
+    patterns = (
+        r"^(\d{15,21})$",
+        r"^<@!?(\d{15,21})>$",
+        r"^https?://(?:www\.)?discord(?:app)?\.com/users/(\d{15,21})(?:[/#?]|$)",
+    )
+    for pattern in patterns:
+        match = re.match(pattern, raw)
+        if match:
+            return match.group(1)
+    raise ValueError(f"no Discord user ID found in {raw!r}")
 
 
 def snowflake_created(user_id):

@@ -12,9 +12,9 @@ Stdlib-only Python 3.8+, no dependencies, no auth required.
 
 ```
 $ python discord_pfp.py 80351110224678912 --banner
-user:        b1nzy (@b1nzy., 80351110224678912)
-created:     2015-08-10T17:26:37.529000+00:00  (3979 days old)
-avatar:      https://cdn.discordapp.com/avatars/.../....png?size=4096
+user:        <display name> (@<username>, <id>)
+created:     <ISO timestamp>  (<age> days old)
+avatar:      <avatar URL>?size=4096
 banner:      none set
 ```
 

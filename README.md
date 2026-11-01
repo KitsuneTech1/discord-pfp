@@ -1,12 +1,12 @@
 <p align="center"><a href="https://kitsunetechnologies.org/work"><img src="https://raw.githubusercontent.com/KitsuneTech1/.github/main/assets/kitsune-banner.svg" alt="Built by Kitsune Technologies" width="760"></a></p>
 
-# discord-pfp
+# Profile Fetch
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen.svg)](discord_pfp.py)
 
-CLI clone of [pfpfinder.com's Discord PFP Downloader](https://pfpfinder.com/tools/discord-pfp-downloader): resolve any Discord user ID to their profile picture, banner, and account-creation info, and download the images at up to 4096px.
+CLI tool (discord-pfp) that fetches Discord profile pictures and banners. Given a user ID, it resolves and downloads avatars and banners at up to 4096px.
 
 Stdlib-only Python 3.8+, no dependencies, no auth required.
 

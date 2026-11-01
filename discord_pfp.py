@@ -29,13 +29,43 @@ SIZES = (256, 512, 1024, 4096)
 DISCORD_EPOCH_MS = 1420070400000  # 2015-01-01T00:00:00Z
 SNOWFLAKE_TIMESTAMP_SHIFT = 22  # low 22 bits of a Discord snowflake are not timestamp
 DEFAULT_AVATAR_COUNT = 6  # number of built-in Discord embed avatars (0.png-5.png)
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+DISCORD_ID_RE = re.compile(r"\d{15,21}\Z")
+IMAGE_HASH_RE = re.compile(r"(?:a_)?[A-Za-z0-9_-]+\Z")
 UA = "discord-pfp/1.0 (+https://github.com/KitsuneTech1/discord-pfp)"
 
 
 def http_get(url, headers=None, timeout=20):
     req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+        chunks = []
+        total = 0
+        while True:
+            chunk = resp.read(64 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_RESPONSE_BYTES:
+                raise ValueError(f"response exceeds {MAX_RESPONSE_BYTES} bytes")
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+
+def validate_user_id(value):
+    """Return a numeric Discord snowflake ID or reject malformed API data."""
+    if isinstance(value, bool):
+        raise ValueError("invalid Discord user ID")
+    text = str(value)
+    if not DISCORD_ID_RE.fullmatch(text) or int(text) > (2**64 - 1):
+        raise ValueError("invalid Discord user ID")
+    return text
+
+
+def validate_image_hash(value):
+    """Return a URL-safe Discord image hash or reject untrusted path syntax."""
+    if not isinstance(value, str) or not IMAGE_HASH_RE.fullmatch(value):
+        raise ValueError("invalid Discord image hash")
+    return value
 
 
 def parse_user_id(raw):
@@ -49,18 +79,25 @@ def parse_user_id(raw):
     for pattern in patterns:
         match = re.match(pattern, raw)
         if match:
-            return match.group(1)
+            return validate_user_id(match.group(1))
     raise ValueError(f"no Discord user ID found in {raw!r}")
 
 
 def snowflake_created(user_id):
+    user_id = validate_user_id(user_id)
     ms = (int(user_id) >> SNOWFLAKE_TIMESTAMP_SHIFT) + DISCORD_EPOCH_MS
-    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    try:
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ValueError("Discord user ID has an invalid timestamp") from exc
 
 
-def user_fields(d):
+def user_fields(d, expected_id=None):
+    user_id = validate_user_id(d["id"])
+    if expected_id is not None and user_id != validate_user_id(expected_id):
+        raise LookupError("resolver returned a different Discord user")
     return {
-        "id": d["id"],
+        "id": user_id,
         "username": d.get("username"),
         "global_name": d.get("global_name"),
         "avatar": d.get("avatar"),
@@ -74,7 +111,7 @@ def lookup_japi(user_id):
     d = data.get("data")
     if not d or "id" not in d:
         raise LookupError(f"japi.rest returned no user for {user_id}")
-    return user_fields(d)
+    return user_fields(d, expected_id=user_id)
 
 
 def lookup_discord_api(user_id, token):
@@ -82,7 +119,7 @@ def lookup_discord_api(user_id, token):
         f"https://discord.com/api/v10/users/{user_id}",
         headers={"Authorization": f"Bot {token}"},
     ))
-    return user_fields(d)
+    return user_fields(d, expected_id=user_id)
 
 
 def lookup(user_id):
@@ -96,12 +133,18 @@ def lookup(user_id):
         try:
             return lookup_discord_api(user_id, token)
         except Exception as e:
-            errors.append(f"discord api: {e}")
+            errors.append(f"discord api: {str(e).replace(token, '[redacted]')}")
     raise LookupError("all resolvers failed: " + "; ".join(errors))
 
 
 def image_urls(kind, user_id, img_hash, size):
     """kind is 'avatars' or 'banners'. Animated hashes start with 'a_'."""
+    if kind not in ("avatars", "banners"):
+        raise ValueError("invalid Discord image kind")
+    user_id = validate_user_id(user_id)
+    validate_image_hash(img_hash)
+    if size not in SIZES:
+        raise ValueError("invalid image size")
     ext = "gif" if img_hash.startswith("a_") else "png"
     base = f"{CDN}/{kind}/{user_id}/{img_hash}"
     return {
@@ -113,15 +156,17 @@ def image_urls(kind, user_id, img_hash, size):
 
 
 def default_avatar_url(user_id):
+    user_id = validate_user_id(user_id)
     index = (int(user_id) >> SNOWFLAKE_TIMESTAMP_SHIFT) % DEFAULT_AVATAR_COUNT
     return f"{CDN}/embed/avatars/{index}.png"
 
 
 def build_result(user, size):
-    created = snowflake_created(user["id"])
+    user_id = validate_user_id(user["id"])
+    created = snowflake_created(user_id)
     age_days = (datetime.now(timezone.utc) - created).days
     result = {
-        "id": user["id"],
+        "id": user_id,
         "username": user.get("username"),
         "display_name": user.get("global_name") or user.get("username"),
         "created_at": created.isoformat(),
@@ -146,7 +191,7 @@ def build_result(user, size):
 
 def download(url, path):
     data = http_get(url)
-    with open(path, "wb") as f:
+    with open(path, "xb") as f:
         f.write(data)
     return len(data)
 
@@ -158,9 +203,13 @@ def main(argv=None):
     ap.add_argument("--download", action="store_true", help="download the avatar (and banner with --banner)")
     ap.add_argument("--banner", action="store_true", help="also include/download the banner")
     ap.add_argument("--out", default=".", help="download directory (default: cwd)")
-    ap.add_argument("--json", action="store_true", help="print machine-readable JSON")
-    ap.add_argument("--url-only", action="store_true", help="print only the avatar URL")
+    output = ap.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    output.add_argument("--url-only", action="store_true", help="print only the avatar URL")
     args = ap.parse_args(argv)
+
+    if args.url_only and args.download:
+        ap.error("--url-only cannot be combined with --download")
 
     try:
         user_id = parse_user_id(args.user)
@@ -171,17 +220,21 @@ def main(argv=None):
         return 1
 
     if args.download:
-        os.makedirs(args.out, exist_ok=True)
-        targets = [("avatar", result["avatar"])]
-        if args.banner and result["banner"]:
-            targets.append(("banner", result["banner"]))
-        result["files"] = {}
-        for label, img in targets:
-            name = f"{result['username'] or user_id}_{label}_{args.size}.{img['ext']}"
-            name = re.sub(r"[^\w.\-]", "_", name)
-            path = os.path.join(args.out, name)
-            n = download(img["url"], path)
-            result["files"][label] = {"path": os.path.abspath(path), "bytes": n}
+        try:
+            os.makedirs(args.out, exist_ok=True)
+            targets = [("avatar", result["avatar"])]
+            if args.banner and result["banner"]:
+                targets.append(("banner", result["banner"]))
+            result["files"] = {}
+            for label, img in targets:
+                name = f"{result['username'] or user_id}_{label}_{args.size}.{img['ext']}"
+                name = re.sub(r"[^\w.\-]", "_", name)
+                path = os.path.join(args.out, name)
+                n = download(img["url"], path)
+                result["files"][label] = {"path": os.path.abspath(path), "bytes": n}
+        except (OSError, ValueError) as e:
+            print(f"error: download failed: {e}", file=sys.stderr)
+            return 1
 
     if args.url_only:
         print(result["avatar"]["url"])

@@ -60,11 +60,12 @@ No persistent storage. The script fetches data per invocation and exits. Downloa
 
 No build or install step. Copy `discord_pfp.py` to any machine with Python 3.8+. Run it directly.
 
-For agent integration, the project registers as a Claude Code user-level skill at `~/.claude/skills/discord-pfp/SKILL.md`.
+The repository does not install or register an agent skill. Invoke the script directly with Python.
 
 ## Gotchas
 
 - japi.rest is a free public service with no uptime guarantee. It can rate-limit or throttle under heavy use. For scripted or high-volume lookups, set `DISCORD_BOT_TOKEN` so the script falls back to the official API.
 - Users without a custom avatar resolve to Discord's default embed avatar. The CDN URL reflects this.
 - Animated avatars and banners have a hash prefixed with `a_`. The script detects this and saves them as `.gif` instead of `.png`.
+- Downloads create new files and refuse to overwrite an existing path.
 - The account creation date is decoded from the snowflake ID locally. It does not depend on any API call and is always available.

@@ -9,6 +9,7 @@ This project exists because the web-based pfpfinder.com downloader is convenient
 - Resolve any Discord user by ID, mention, or profile URL
 - Fetch avatar and optional banner at 256, 512, 1024, or 4096 pixels
 - Download images to disk with automatic file naming
+- Refuse to overwrite an existing download path
 - Output machine-readable JSON with per-size CDN URLs and saved file paths
 - Decode account creation date directly from the snowflake ID, no API call needed
 - Fall back to the official Discord API when a bot token is provided

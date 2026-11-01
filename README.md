@@ -78,6 +78,8 @@ python discord_pfp.py <user> [--size {256,512,1024,4096}] [--download] [--banner
 | `--json` | Print machine-readable JSON, including per-size CDN URLs and saved file paths |
 | `--url-only` | Print only the avatar URL |
 
+Downloads create new files and refuse to overwrite an existing path.
+
 Animated avatars/banners (hash prefixed `a_`) are returned as `.gif`, static as `.png`. Users with no custom avatar resolve to Discord's default embed avatar.
 
 ## How it works
